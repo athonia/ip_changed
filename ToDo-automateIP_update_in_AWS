@@ -1,0 +1,47 @@
+#ToDo
+#My BFF, Co-pilot, generously suggested adding another script that would automatically change the AWS security settings to add the new IP. 
+
+import boto3
+import requests
+
+def lambda_handler(event, context):
+    # Fetch current public IP
+    current_ip = requests.get('https://api.ipify.org').text + '/32'
+    
+    # Initialize AWS EC2 client
+    ec2 = boto3.client('ec2')
+    
+    # Define the security group ID and the port to update
+    security_group_id = 'sg-xxxxxxxx'
+    port = 22  # SSH port
+    
+    # Revoke old rules
+    ec2.revoke_security_group_ingress(
+        GroupId=security_group_id,
+        IpPermissions=[
+            {
+                'IpProtocol': 'tcp',
+                'FromPort': port,
+                'ToPort': port,
+                'IpRanges': [{'CidrIp': '0.0.0.0/0'}]  # Replace with the old IP range
+            }
+        ]
+    )
+    
+    # Authorize new rules
+    ec2.authorize_security_group_ingress(
+        GroupId=security_group_id,
+        IpPermissions=[
+            {
+                'IpProtocol': 'tcp',
+                'FromPort': port,
+                'ToPort': port,
+                'IpRanges': [{'CidrIp': current_ip}]
+            }
+        ]
+    )
+    
+    return {
+        'statusCode': 200,
+        'body': f'Security group updated with IP {current_ip}'
+    }
